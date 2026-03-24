@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import TripCard from "@/components/public/TripCard";
 import Image from "next/image";
 import { getImageUrl } from "@/lib/supabase/storage";
+import { getSiteImages } from "@/lib/supabase/site-images";
 
 export const metadata = { title: "Group Tours" };
 
@@ -12,14 +13,26 @@ export default async function TripsPage({
 }) {
   const { year } = await searchParams;
   const supabase = await createClient();
+  const img = await getSiteImages();
 
   const { data: allTrips } = await supabase
     .from("trips")
     .select("*")
-    .neq("slug", "gallery")
-    .order("created_at", { ascending: false });
+    .neq("slug", "gallery");
 
   const trips = allTrips || [];
+
+  // Sort chronologically by parsing the first date in the dates string
+  const parseFirstDate = (dates: string | null): number => {
+    if (!dates) return 0;
+    // Match "Month Day" and "Year" — handles "September 3-17, 2026", "July 23 - August 2, 2025", etc.
+    const match = dates.match(/(\w+)\s+(\d{1,2})/);
+    const yearMatch = dates.match(/(\d{4})/);
+    if (match && yearMatch) return new Date(`${match[1]} ${match[2]}, ${yearMatch[1]}`).getTime();
+    if (yearMatch) return new Date(`January 1, ${yearMatch[1]}`).getTime();
+    return 0;
+  };
+  trips.sort((a, b) => parseFirstDate(a.dates) - parseFirstDate(b.dates));
 
   // Filter by year if specified (match year in dates field)
   const filtered = year
@@ -49,12 +62,13 @@ export default async function TripsPage({
   return (
     <>
       {/* Hero */}
-      <section className="relative h-64 flex items-center justify-center overflow-hidden">
+      <section className="relative h-80 flex items-center justify-center overflow-hidden pt-20">
         <Image
-          src={getImageUrl("heroes/accent-travel-agency-hero-2026-01-2880w.jpg")}
+          src={getImageUrl(img.hero_trips || "heroes/accent-travel-agency-hero-2026-01-2880w.jpg")}
           alt="Group tours"
           fill
           className="object-cover"
+          style={{ objectPosition: img.hero_trips_pos || "center center" }}
           priority
         />
         <div className="absolute inset-0 bg-brand-teal/60" />
@@ -66,7 +80,7 @@ export default async function TripsPage({
       </section>
 
       {/* Year filter */}
-      <section className="bg-white border-b sticky top-[105px] z-40">
+      <section className="bg-white border-b sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 py-3 flex items-center gap-2 overflow-x-auto">
           <a
             href="/trips"
@@ -103,8 +117,8 @@ export default async function TripsPage({
             </p>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {tripsWithPhotos.map(({ trip, photo }) => (
-                <TripCard key={trip.id} trip={trip} photo={photo} />
+              {tripsWithPhotos.map(({ trip, photo }, index) => (
+                <TripCard key={trip.id} trip={trip} photo={photo} priority={index < 3} />
               ))}
             </div>
           )}

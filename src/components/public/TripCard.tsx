@@ -10,11 +10,18 @@ type Props = {
     dates: string | null;
     price: string | null;
     featured: boolean;
+    status?: string | null;
+    status_note?: string | null;
+    duration?: string | null;
   };
   photo?: { storage_path: string } | null;
+  priority?: boolean;
 };
 
-export default function TripCard({ trip, photo }: Props) {
+export default function TripCard({ trip, photo, priority = false }: Props) {
+  const isSoldOut = trip.status === "sold_out";
+  const isLimited = trip.status === "limited";
+
   return (
     <Link
       href={`/trips/${trip.slug}`}
@@ -26,7 +33,8 @@ export default function TripCard({ trip, photo }: Props) {
             src={getImageUrl(photo.storage_path)}
             alt={trip.title}
             fill
-            className="object-cover group-hover:scale-105 transition-transform duration-500"
+            priority={priority}
+            className={`object-cover group-hover:scale-105 transition-transform duration-500 ${isSoldOut ? "grayscale-[30%]" : ""}`}
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
           />
         ) : (
@@ -36,11 +44,23 @@ export default function TripCard({ trip, photo }: Props) {
             </svg>
           </div>
         )}
-        {trip.featured && (
-          <span className="absolute top-3 left-3 bg-brand-gold text-white text-xs font-bold px-2 py-1 rounded font-[family-name:var(--font-heading)] uppercase tracking-wider">
-            Featured
-          </span>
-        )}
+        <div className="absolute top-3 left-3 flex flex-col gap-1.5">
+          {trip.featured && (
+            <span className="bg-brand-gold text-white text-xs font-bold px-2 py-1 rounded font-[family-name:var(--font-heading)] uppercase tracking-wider">
+              Featured
+            </span>
+          )}
+          {isSoldOut && (
+            <span className="bg-red-600 text-white text-xs font-bold px-2 py-1 rounded font-[family-name:var(--font-heading)] uppercase tracking-wider">
+              Sold Out
+            </span>
+          )}
+          {isLimited && (
+            <span className="bg-orange-500 text-white text-xs font-bold px-2 py-1 rounded font-[family-name:var(--font-heading)] uppercase tracking-wider">
+              Limited Availability
+            </span>
+          )}
+        </div>
       </div>
       <div className="p-5">
         <h3 className="font-[family-name:var(--font-heading)] text-xl font-semibold text-brand-teal group-hover:text-brand-gold transition-colors leading-tight">
@@ -50,8 +70,19 @@ export default function TripCard({ trip, photo }: Props) {
         {trip.dates && (
           <p className="text-sm text-brand-charcoal mt-2">{trip.dates}</p>
         )}
-        {trip.price && (
-          <p className="text-sm font-bold text-brand-gold mt-1">{trip.price}</p>
+        <div className="flex items-center gap-3 mt-1">
+          {trip.price && (
+            <p className="text-sm font-bold text-brand-gold">{trip.price}</p>
+          )}
+          {trip.duration && (
+            <p className="text-sm text-gray-500">{trip.duration}</p>
+          )}
+        </div>
+        {isSoldOut && trip.status_note && (
+          <p className="text-xs text-red-600 mt-1 italic">{trip.status_note}</p>
+        )}
+        {isLimited && trip.status_note && (
+          <p className="text-xs text-orange-600 mt-1 font-semibold">{trip.status_note}</p>
         )}
         <span className="inline-block mt-3 text-sm font-[family-name:var(--font-heading)] text-brand-gold uppercase tracking-wide group-hover:underline">
           View Details →

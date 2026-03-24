@@ -1,8 +1,18 @@
 import { createClient } from "@/lib/supabase/server";
 import { getImageUrl } from "@/lib/supabase/storage";
+import { getSiteImages } from "@/lib/supabase/site-images";
 import Image from "next/image";
+import GalleryPhoto from "@/components/public/GalleryPhoto";
 
 export const metadata = { title: "Photo Gallery" };
+
+type Photo = {
+  id: string;
+  storage_path: string;
+  caption: string | null;
+  trip_id: string;
+  display_shape: string;
+};
 
 function shapeAspect(shape: string) {
   const map: Record<string, string> = {
@@ -16,21 +26,14 @@ function shapeAspect(shape: string) {
   return map[shape] || "aspect-[4/3]";
 }
 
-type Photo = {
-  id: string;
-  storage_path: string;
-  caption: string | null;
-  trip_id: string;
-  display_shape: string;
-};
-
 export default async function GalleryPage() {
   const supabase = await createClient();
+  const img = await getSiteImages();
 
-  // Get gallery photos (from the "gallery" virtual trip)
+  // Only show gallery photos — no random trip photos
   const { data: galleryTrip } = await supabase
     .from("trips")
-    .select()
+    .select("id")
     .eq("slug", "gallery")
     .single();
 
@@ -45,27 +48,16 @@ export default async function GalleryPage() {
     galleryPhotos = (data || []) as Photo[];
   }
 
-  // Also get photos from actual trips
-  const { data: tripPhotos } = await supabase
-    .from("photos")
-    .select()
-    .order("display_order")
-    .limit(20);
-
-  // Merge, deduplicating by id
-  const seenIds = new Set(galleryPhotos.map((p) => p.id));
-  const extraPhotos = ((tripPhotos || []) as Photo[]).filter((p) => !seenIds.has(p.id));
-  const allPhotos = [...galleryPhotos, ...extraPhotos];
-
   return (
     <>
       {/* Hero */}
-      <section className="relative h-64 flex items-center justify-center overflow-hidden">
+      <section className="relative h-80 flex items-center justify-center overflow-hidden pt-20">
         <Image
-          src={getImageUrl("heroes/about-hero-2880w.jpg")}
+          src={getImageUrl(img.hero_gallery || "heroes/about-hero-2880w.jpg")}
           alt="Photo gallery"
           fill
           className="object-cover"
+          style={{ objectPosition: img.hero_gallery_pos || "center center" }}
           priority
         />
         <div className="absolute inset-0 bg-brand-teal/60" />
@@ -82,30 +74,29 @@ export default async function GalleryPage() {
       {/* Gallery grid */}
       <section className="py-12 px-4 bg-brand-offwhite min-h-[50vh]">
         <div className="max-w-7xl mx-auto">
-          <div className="columns-1 sm:columns-2 lg:columns-3 gap-4 space-y-4">
-            {allPhotos.map((photo) => {
-              const isCircle = photo.display_shape === "circle";
-              return (
-                <div
-                  key={photo.id}
-                  className={`break-inside-avoid overflow-hidden shadow-md bg-white ${isCircle ? "rounded-full" : "rounded-lg"}`}
-                >
-                  <div className={`relative ${shapeAspect(photo.display_shape)}`}>
-                    <Image
-                      src={getImageUrl(photo.storage_path)}
-                      alt={photo.caption || "Travel photo"}
-                      fill
-                      className="object-cover"
-                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+          {galleryPhotos.length === 0 ? (
+            <p className="text-center text-gray-400 py-20">No gallery photos yet. Check back soon!</p>
+          ) : (
+            <div className="columns-1 sm:columns-2 lg:columns-3 gap-4 space-y-4">
+              {galleryPhotos.map((photo) => {
+                const isCircle = photo.display_shape === "circle";
+                return (
+                  <div
+                    key={photo.id}
+                    className={`break-inside-avoid overflow-hidden shadow-md bg-white ${isCircle ? "rounded-full" : "rounded-lg"}`}
+                  >
+                    <GalleryPhoto
+                      storage_path={photo.storage_path}
+                      caption={photo.caption}
+                      display_shape={photo.display_shape}
+                      isCircle={isCircle}
+                      shapeClass={shapeAspect(photo.display_shape)}
                     />
                   </div>
-                  {photo.caption && !isCircle && (
-                    <p className="px-3 py-2 text-sm text-brand-charcoal">{photo.caption}</p>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </section>
     </>
