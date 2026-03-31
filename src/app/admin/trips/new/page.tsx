@@ -31,7 +31,19 @@ export default function NewTripPage() {
     setSaving(true);
     setError("");
 
-    const slug = toSlug(form.title);
+    let slug = toSlug(form.title);
+
+    // Check for slug conflicts and add suffix if needed
+    const { data: existing } = await supabase.from("trips").select("id").eq("slug", slug).single();
+    if (existing) {
+      let suffix = 2;
+      while (true) {
+        const candidate = `${slug}-${suffix}`;
+        const { data: dup } = await supabase.from("trips").select("id").eq("slug", candidate).single();
+        if (!dup) { slug = candidate; break; }
+        suffix++;
+      }
+    }
 
     const { data, error: err } = await supabase
       .from("trips")

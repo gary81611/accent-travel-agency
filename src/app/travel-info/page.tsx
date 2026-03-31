@@ -1,15 +1,18 @@
 import { createClient } from "@/lib/supabase/server";
 import { getImageUrl } from "@/lib/supabase/storage";
+import { getSiteImages } from "@/lib/supabase/site-images";
 import Image from "next/image";
 
 export const metadata = { title: "General Travel Information" };
 
 export default async function TravelInfoPage() {
   const supabase = await createClient();
+  const img = await getSiteImages();
   const { data: page } = await supabase
     .from("pages")
     .select("*")
     .eq("slug", "general-travel-information")
+    .eq("site_id", "accent")
     .single();
 
   // Parse the markdown content into sections
@@ -19,12 +22,13 @@ export default async function TravelInfoPage() {
   return (
     <>
       {/* Hero */}
-      <section className="relative h-64 flex items-center justify-center overflow-hidden">
+      <section className="relative h-80 flex items-center justify-center overflow-hidden pt-20">
         <Image
-          src={getImageUrl("heroes/general-hero-2880w.jpg")}
+          src={getImageUrl(img.hero_travel_info || "heroes/general-hero-2880w.jpg")}
           alt="Travel information"
           fill
           className="object-cover"
+          style={{ objectPosition: img.hero_travel_info_pos || "center center" }}
           priority
         />
         <div className="absolute inset-0 bg-brand-teal/60" />

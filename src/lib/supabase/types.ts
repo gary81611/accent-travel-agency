@@ -12,6 +12,11 @@ export type Database = {
           price: string | null;
           featured: boolean;
           created_at: string;
+          status: string | null;
+          status_note: string | null;
+          duration: string | null;
+          meals: string | null;
+          brochure_url: string | null;
         };
         Insert: {
           id?: string;
@@ -23,6 +28,11 @@ export type Database = {
           price?: string | null;
           featured?: boolean;
           created_at?: string;
+          status?: string | null;
+          status_note?: string | null;
+          duration?: string | null;
+          meals?: string | null;
+          brochure_url?: string | null;
         };
         Update: {
           id?: string;
@@ -34,6 +44,11 @@ export type Database = {
           price?: string | null;
           featured?: boolean;
           created_at?: string;
+          status?: string | null;
+          status_note?: string | null;
+          duration?: string | null;
+          meals?: string | null;
+          brochure_url?: string | null;
         };
         Relationships: [];
       };
@@ -71,6 +86,7 @@ export type Database = {
           storage_path: string;
           caption: string | null;
           display_order: number;
+          display_shape: string | null;
           created_at: string;
         };
         Insert: {
@@ -79,6 +95,7 @@ export type Database = {
           storage_path: string;
           caption?: string | null;
           display_order?: number;
+          display_shape?: string | null;
           created_at?: string;
         };
         Update: {
@@ -87,6 +104,7 @@ export type Database = {
           storage_path?: string;
           caption?: string | null;
           display_order?: number;
+          display_shape?: string | null;
           created_at?: string;
         };
         Relationships: [];

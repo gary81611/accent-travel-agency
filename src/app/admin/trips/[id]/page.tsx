@@ -10,6 +10,8 @@ import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea
 type Trip = {
   id: string; title: string; slug: string; destination: string;
   description: string; dates: string | null; price: string | null; featured: boolean;
+  brochure_url: string | null; status: string | null; status_note: string | null;
+  meals: string | null; duration: string | null;
 };
 type ItinDay = {
   id: string; trip_id: string; day_number: number; title: string; description: string;
@@ -52,6 +54,8 @@ export default function EditTripPage() {
   const [selectedPhotos, setSelectedPhotos] = useState<Set<string>>(new Set());
   const [moveTarget, setMoveTarget] = useState<string>("");
   const [dragOverZone, setDragOverZone] = useState(false);
+  const [uploadingBrochure, setUploadingBrochure] = useState(false);
+  const brochureInputRef = useRef<HTMLInputElement>(null);
 
   const flash = (type: "ok" | "err", text: string) => {
     setToast({ type, text });
@@ -82,6 +86,8 @@ export default function EditTripPage() {
     const { error } = await supabase.from("trips").update({
       title: trip.title, destination: trip.destination, description: trip.description,
       dates: trip.dates, price: trip.price, featured: trip.featured,
+      brochure_url: trip.brochure_url, status: trip.status, status_note: trip.status_note,
+      meals: trip.meals, duration: trip.duration,
     }).eq("id", trip.id);
     setSaving(false);
     flash(error ? "err" : "ok", error ? error.message : "Trip saved!");
@@ -117,13 +123,20 @@ export default function EditTripPage() {
   }
   async function saveItinerary() {
     setSaving(true);
-    await supabase.from("itineraries").delete().eq("trip_id", id);
-    if (itinerary.length > 0) {
-      const rows = itinerary.map((d) => ({
-        trip_id: id, day_number: d.day_number, title: d.title, description: d.description,
-      }));
-      const { error } = await supabase.from("itineraries").insert(rows);
+    // Insert new rows first, then delete removed ones (safe — no data loss on insert failure)
+    const rows = itinerary.map((d) => ({
+      trip_id: id, day_number: d.day_number, title: d.title, description: d.description,
+    }));
+    if (rows.length > 0) {
+      const { error } = await supabase.from("itineraries").upsert(rows, { onConflict: "trip_id,day_number" });
       if (error) { flash("err", error.message); setSaving(false); return; }
+    }
+    // Delete day numbers no longer in the current set
+    const currentDays = itinerary.map((d) => d.day_number);
+    if (currentDays.length > 0) {
+      await supabase.from("itineraries").delete().eq("trip_id", id).not("day_number", "in", `(${currentDays.join(",")})`);
+    } else {
+      await supabase.from("itineraries").delete().eq("trip_id", id);
     }
     flash("ok", "Itinerary saved!");
     setSaving(false);
@@ -281,6 +294,22 @@ export default function EditTripPage() {
             <Field label="Price" hint="e.g. $5,195.00/person">
               <input type="text" value={trip.price || ""} onChange={(e) => setTrip({ ...trip, price: e.target.value })} className="field" />
             </Field>
+            <Field label="Duration" hint="e.g. 15 days">
+              <input type="text" value={trip.duration || ""} onChange={(e) => setTrip({ ...trip, duration: e.target.value })} className="field" />
+            </Field>
+            <Field label="Meals Included" hint="e.g. 13 breakfasts, 6 lunches, 10 dinners">
+              <input type="text" value={trip.meals || ""} onChange={(e) => setTrip({ ...trip, meals: e.target.value })} className="field" />
+            </Field>
+            <Field label="Status">
+              <select value={trip.status || "active"} onChange={(e) => setTrip({ ...trip, status: e.target.value })} className="field">
+                <option value="active">Active</option>
+                <option value="sold_out">Sold Out</option>
+                <option value="limited">Limited Availability</option>
+              </select>
+            </Field>
+            <Field label="Status Note" hint="e.g. 4 Seats now available!">
+              <input type="text" value={trip.status_note || ""} onChange={(e) => setTrip({ ...trip, status_note: e.target.value })} className="field" />
+            </Field>
           </div>
           <Field label="Description">
             <textarea rows={8} value={trip.description} onChange={(e) => setTrip({ ...trip, description: e.target.value })} className="field resize-y" />
@@ -292,6 +321,56 @@ export default function EditTripPage() {
             <input type="checkbox" checked={trip.featured} onChange={(e) => setTrip({ ...trip, featured: e.target.checked })} className="sr-only" />
             <span className="text-sm font-semibold text-brand-charcoal">Show on homepage as featured trip</span>
           </label>
+
+          {/* Brochure / Document upload */}
+          <div className="border-t pt-5">
+            <label className="block text-sm font-semibold text-brand-charcoal mb-2">
+              Trip Brochure / Detailed Itinerary
+            </label>
+            <p className="text-[11px] text-gray-400 mb-3">
+              Upload a PDF or document with the full trip details. A &quot;Click Here For More Information&quot; button will appear on the trip page.
+            </p>
+            {trip.brochure_url ? (
+              <div className="flex items-center gap-3 bg-gray-50 rounded-xl p-3">
+                <svg className="w-8 h-8 text-brand-gold shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-brand-charcoal truncate">Brochure attached</p>
+                  <a href={trip.brochure_url} target="_blank" rel="noopener noreferrer" className="text-xs text-brand-gold hover:underline">View document</a>
+                </div>
+                <button type="button" onClick={() => setTrip({ ...trip, brochure_url: null })} className="text-xs text-red-400 hover:text-red-600 font-semibold">Remove</button>
+                <button type="button" onClick={() => brochureInputRef.current?.click()} className="btn-secondary text-xs">Replace</button>
+              </div>
+            ) : (
+              <button type="button" onClick={() => brochureInputRef.current?.click()} disabled={uploadingBrochure}
+                className="btn-secondary flex items-center gap-2">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                </svg>
+                {uploadingBrochure ? "Uploading..." : "Upload Brochure (PDF)"}
+              </button>
+            )}
+            <input ref={brochureInputRef} type="file" accept=".pdf,.doc,.docx" className="hidden"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                setUploadingBrochure(true);
+                const ext = file.name.split(".").pop();
+                const path = `brochures/${trip.slug}-${Date.now()}.${ext}`;
+                const { error } = await supabase.storage.from("photos").upload(path, file, { upsert: true });
+                if (error) { flash("err", error.message); }
+                else {
+                  const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/photos/${path}`;
+                  setTrip({ ...trip, brochure_url: url });
+                  flash("ok", "Brochure uploaded! Click Save to apply.");
+                }
+                setUploadingBrochure(false);
+                e.target.value = "";
+              }}
+            />
+          </div>
+
           <SaveButton saving={saving} />
         </form>
       )}

@@ -39,18 +39,25 @@ export default async function TripsPage({
     ? trips.filter((t) => t.dates?.includes(year))
     : trips;
 
-  // Get first photo per trip
-  const tripsWithPhotos = await Promise.all(
-    filtered.map(async (trip) => {
-      const { data: photos } = await supabase
+  // Batch photo fetch instead of N+1
+  const filteredIds = filtered.map((t) => t.id);
+  const { data: allPhotos } = filteredIds.length > 0
+    ? await supabase
         .from("photos")
-        .select("storage_path")
-        .eq("trip_id", trip.id)
+        .select("trip_id, storage_path")
+        .in("trip_id", filteredIds)
         .order("display_order")
-        .limit(1);
-      return { trip, photo: photos?.[0] || null };
-    })
-  );
+    : { data: [] };
+
+  const photoByTrip = new Map<string, { storage_path: string }>();
+  for (const photo of allPhotos || []) {
+    if (!photoByTrip.has(photo.trip_id)) photoByTrip.set(photo.trip_id, photo);
+  }
+
+  const tripsWithPhotos = filtered.map((trip) => ({
+    trip,
+    photo: photoByTrip.get(trip.id) || null,
+  }));
 
   // Get unique years from all trips for the filter tabs
   const years = [...new Set(

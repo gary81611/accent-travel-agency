@@ -9,12 +9,33 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const supabase = await createClient();
   const { data: trip } = await supabase
     .from("trips")
-    .select("title, destination")
+    .select("title, destination, description, id")
     .eq("slug", slug)
     .single();
 
   if (!trip) return { title: "Trip Not Found" };
-  return { title: `${trip.title} — ${trip.destination}` };
+
+  const { data: photos } = await supabase
+    .from("photos")
+    .select("storage_path")
+    .eq("trip_id", trip.id)
+    .order("display_order")
+    .limit(1);
+
+  const ogImage = photos?.[0]
+    ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/photos/${photos[0].storage_path}`
+    : undefined;
+
+  return {
+    title: `${trip.title} — ${trip.destination}`,
+    description: trip.description?.slice(0, 160),
+    openGraph: {
+      title: `${trip.title} — ${trip.destination}`,
+      description: trip.description?.slice(0, 160),
+      type: "article" as const,
+      ...(ogImage ? { images: [{ url: ogImage }] } : {}),
+    },
+  };
 }
 
 export default async function TripDetailPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -46,7 +67,7 @@ export default async function TripDetailPage({ params }: { params: Promise<{ slu
   return (
     <>
       {/* Hero */}
-      <section className="relative h-72 md:h-96 flex items-end overflow-hidden">
+      <section className="relative h-80 md:h-[28rem] flex items-end overflow-hidden pt-20">
         {heroPhoto ? (
           <Image
             src={getImageUrl(heroPhoto.storage_path)}
@@ -77,6 +98,28 @@ export default async function TripDetailPage({ params }: { params: Promise<{ slu
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
           {/* Main content */}
           <div className="lg:col-span-2">
+            {/* Status banner */}
+            {trip.status === "sold_out" && (
+              <div className="bg-red-50 border border-red-200 rounded-lg px-5 py-3 mb-6 flex items-center gap-3">
+                <span className="bg-red-600 text-white text-xs font-bold px-2.5 py-1 rounded font-[family-name:var(--font-heading)] uppercase tracking-wider">
+                  Sold Out
+                </span>
+                <span className="text-red-700 text-sm">
+                  {trip.status_note || "Please contact us to be added to the waitlist."}
+                </span>
+              </div>
+            )}
+            {trip.status === "limited" && (
+              <div className="bg-orange-50 border border-orange-200 rounded-lg px-5 py-3 mb-6 flex items-center gap-3">
+                <span className="bg-orange-500 text-white text-xs font-bold px-2.5 py-1 rounded font-[family-name:var(--font-heading)] uppercase tracking-wider">
+                  Limited
+                </span>
+                <span className="text-orange-700 text-sm font-semibold">
+                  {trip.status_note || "Limited availability — book soon!"}
+                </span>
+              </div>
+            )}
+
             {/* Quick facts */}
             <div className="flex flex-wrap gap-4 mb-8">
               {trip.dates && (
@@ -85,10 +128,22 @@ export default async function TripDetailPage({ params }: { params: Promise<{ slu
                   <p className="font-semibold text-brand-charcoal">{trip.dates}</p>
                 </div>
               )}
+              {trip.duration && (
+                <div className="bg-brand-offwhite rounded-lg px-4 py-3">
+                  <p className="text-xs text-gray-500 uppercase font-[family-name:var(--font-heading)] tracking-wide">Duration</p>
+                  <p className="font-semibold text-brand-charcoal">{trip.duration}</p>
+                </div>
+              )}
               {trip.price && (
                 <div className="bg-brand-offwhite rounded-lg px-4 py-3">
                   <p className="text-xs text-gray-500 uppercase font-[family-name:var(--font-heading)] tracking-wide">Price</p>
                   <p className="font-semibold text-brand-gold">{trip.price}</p>
+                </div>
+              )}
+              {trip.meals && (
+                <div className="bg-brand-offwhite rounded-lg px-4 py-3">
+                  <p className="text-xs text-gray-500 uppercase font-[family-name:var(--font-heading)] tracking-wide">Meals Included</p>
+                  <p className="font-semibold text-brand-charcoal">{trip.meals}</p>
                 </div>
               )}
             </div>
@@ -105,6 +160,23 @@ export default async function TripDetailPage({ params }: { params: Promise<{ slu
                 </p>
               ))}
             </div>
+
+            {/* Brochure / More Information link */}
+            {trip.brochure_url && (
+              <div className="mb-10">
+                <a
+                  href={trip.brochure_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-3 bg-brand-gold text-white px-8 py-4 rounded-lg font-[family-name:var(--font-heading)] text-xl font-bold uppercase tracking-wide hover:bg-brand-gold-light transition-colors shadow-md hover:shadow-lg"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Click Here for More Information
+                </a>
+              </div>
+            )}
 
             {/* Itinerary */}
             {itinerary && itinerary.length > 0 && (

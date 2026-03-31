@@ -62,7 +62,8 @@ schema_paths = []
 enabled = true
 # Specifies an ordered list of seed files to load during db reset.
 # Supports glob patterns relative to supabase directory: "./seeds/*.sql"
-sql_paths = ["./seed.sql"]
+# Seed is handled by scripts/seed.mjs (Node.js), not SQL
+sql_paths = []
 
 [db.network_restrictions]
 # Enable management of network restrictions.
@@ -162,6 +163,7 @@ enable_refresh_token_rotation = true
 # Requires enable_refresh_token_rotation = true.
 refresh_token_reuse_interval = 10
 # Allow/disallow new user signups to your project.
+# TODO: Set to false in Supabase dashboard for production to prevent unauthorized account creation.
 enable_signup = true
 # Allow/disallow anonymous sign-ins to your project.
 enable_anonymous_sign_ins = false

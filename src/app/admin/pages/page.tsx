@@ -19,7 +19,7 @@ export default function AdminPagesPage() {
 
   useEffect(() => {
     async function load() {
-      const { data } = await supabase.from("pages").select().order("slug");
+      const { data } = await supabase.from("pages").select().eq("site_id", "accent").order("slug");
       setPages((data || []) as Page[]);
       if (data && data.length > 0) setSelected(data[0] as Page);
     }
