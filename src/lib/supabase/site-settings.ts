@@ -34,14 +34,18 @@ const DEFAULTS: SiteSettings = {
 };
 
 export async function getSiteSettings(): Promise<SiteSettings> {
-  const supabase = await createClient();
-  const { data } = await supabase.from("settings").select("key, value");
+  try {
+    const supabase = await createClient();
+    const { data } = await supabase.from("settings").select("key, value");
 
-  const settings = { ...DEFAULTS };
-  for (const row of (data || []) as { key: string; value: string }[]) {
-    if (row.key && !row.key.startsWith("image_")) {
-      settings[row.key] = row.value;
+    const settings = { ...DEFAULTS };
+    for (const row of (data || []) as { key: string; value: string }[]) {
+      if (row.key && !row.key.startsWith("image_")) {
+        settings[row.key] = row.value;
+      }
     }
+    return settings;
+  } catch {
+    return { ...DEFAULTS };
   }
-  return settings;
 }
