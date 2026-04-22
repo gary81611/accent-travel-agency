@@ -339,7 +339,24 @@ export default function EditTripPage() {
                   <p className="text-sm font-semibold text-brand-charcoal truncate">Brochure attached</p>
                   <a href={trip.brochure_url} target="_blank" rel="noopener noreferrer" className="text-xs text-brand-gold hover:underline">View document</a>
                 </div>
-                <button type="button" onClick={() => setTrip({ ...trip, brochure_url: null })} className="text-xs text-red-400 hover:text-red-600 font-semibold">Remove</button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const { error: dbErr } = await supabase
+                      .from("trips")
+                      .update({ brochure_url: null })
+                      .eq("id", trip.id);
+                    if (dbErr) {
+                      flash("err", dbErr.message);
+                      return;
+                    }
+                    setTrip({ ...trip, brochure_url: null });
+                    flash("ok", "Brochure removed from the trip page.");
+                  }}
+                  className="text-xs text-red-400 hover:text-red-600 font-semibold"
+                >
+                  Remove
+                </button>
                 <button type="button" onClick={() => brochureInputRef.current?.click()} className="btn-secondary text-xs">Replace</button>
               </div>
             ) : (
@@ -354,17 +371,39 @@ export default function EditTripPage() {
             <input ref={brochureInputRef} type="file" accept=".pdf,.doc,.docx" className="hidden"
               onChange={async (e) => {
                 const file = e.target.files?.[0];
-                if (!file) return;
+                if (!file || !trip) return;
                 setUploadingBrochure(true);
-                const ext = file.name.split(".").pop();
-                const path = `brochures/${trip.slug}-${Date.now()}.${ext}`;
-                const { error } = await supabase.storage.from("photos").upload(path, file, { upsert: true });
-                if (error) { flash("err", error.message); }
-                else {
-                  const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/photos/${path}`;
-                  setTrip({ ...trip, brochure_url: url });
-                  flash("ok", "Brochure uploaded! Click Save to apply.");
+                const ext = file.name.split(".").pop() || "pdf";
+                const key = trip.slug || id;
+                const path = `brochures/${key}-${Date.now()}.${ext}`;
+                const { error: upErr } = await supabase.storage.from("photos").upload(path, file, { upsert: true });
+                if (upErr) {
+                  flash("err", upErr.message);
+                  setUploadingBrochure(false);
+                  e.target.value = "";
+                  return;
                 }
+                const base = process.env.NEXT_PUBLIC_SUPABASE_URL;
+                if (!base) {
+                  flash("err", "Site configuration error: missing public URL.");
+                  setUploadingBrochure(false);
+                  e.target.value = "";
+                  return;
+                }
+                const url = `${base}/storage/v1/object/public/photos/${path}`;
+                const { error: dbErr } = await supabase
+                  .from("trips")
+                  .update({ brochure_url: url })
+                  .eq("id", trip.id);
+                if (dbErr) {
+                  await supabase.storage.from("photos").remove([path]);
+                  flash("err", `Uploaded file could not be linked to this trip: ${dbErr.message}`);
+                  setUploadingBrochure(false);
+                  e.target.value = "";
+                  return;
+                }
+                setTrip({ ...trip, brochure_url: url });
+                flash("ok", "Brochure saved. The trip page will show “Click Here for More Information.”");
                 setUploadingBrochure(false);
                 e.target.value = "";
               }}
