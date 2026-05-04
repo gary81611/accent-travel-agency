@@ -36,7 +36,8 @@ function shapeClass(shape: string) {
 }
 
 export default function EditTripPage() {
-  const { id } = useParams<{ id: string }>();
+  const params = useParams<{ id: string }>();
+  const id = typeof params.id === "string" ? params.id : params.id?.[0] ?? "";
   const supabase = createClient();
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -63,13 +64,23 @@ export default function EditTripPage() {
   };
 
   const loadData = useCallback(async () => {
+    if (!id) {
+      setTrip(null);
+      setLoading(false);
+      return;
+    }
     const [tripRes, itinRes, photoRes, tripsRes] = await Promise.all([
       supabase.from("trips").select().eq("id", id).single(),
       supabase.from("itineraries").select().eq("trip_id", id).order("day_number"),
       supabase.from("photos").select().eq("trip_id", id).order("display_order"),
       supabase.from("trips").select("id, title, slug").neq("slug", "gallery").order("title"),
     ]);
-    setTrip(tripRes.data as Trip);
+    if (tripRes.error) {
+      console.error(tripRes.error);
+      setTrip(null);
+    } else {
+      setTrip(tripRes.data as Trip);
+    }
     setItinerary((itinRes.data || []) as ItinDay[]);
     setPhotos((photoRes.data || []) as Photo[]);
     setAllTrips((tripsRes.data || []) as TripOption[]);
@@ -83,13 +94,16 @@ export default function EditTripPage() {
     e.preventDefault();
     if (!trip) return;
     setSaving(true);
+    // Do not set brochure_url here — it is persisted only via upload/remove handlers.
+    // Including it risks overwriting the DB with stale React state after loadData() races.
     const { error } = await supabase.from("trips").update({
       title: trip.title, destination: trip.destination, description: trip.description,
       dates: trip.dates, price: trip.price, featured: trip.featured,
-      brochure_url: trip.brochure_url, status: trip.status, status_note: trip.status_note,
+      status: trip.status, status_note: trip.status_note,
       meals: trip.meals, duration: trip.duration,
     }).eq("id", trip.id);
     setSaving(false);
+    if (!error) await loadData();
     flash(error ? "err" : "ok", error ? error.message : "Trip saved!");
   }
 
@@ -342,15 +356,18 @@ export default function EditTripPage() {
                 <button
                   type="button"
                   onClick={async () => {
-                    const { error: dbErr } = await supabase
+                    const { data: updatedTrip, error: dbErr } = await supabase
                       .from("trips")
                       .update({ brochure_url: null })
-                      .eq("id", trip.id);
-                    if (dbErr) {
-                      flash("err", dbErr.message);
+                      .eq("id", trip.id)
+                      .select()
+                      .single();
+                    if (dbErr || !updatedTrip) {
+                      flash("err", dbErr?.message ?? "Could not remove brochure.");
                       return;
                     }
-                    setTrip({ ...trip, brochure_url: null });
+                    setTrip(updatedTrip as Trip);
+                    router.refresh();
                     flash("ok", "Brochure removed from the trip page.");
                   }}
                   className="text-xs text-red-400 hover:text-red-600 font-semibold"
@@ -391,18 +408,24 @@ export default function EditTripPage() {
                   return;
                 }
                 const url = `${base}/storage/v1/object/public/photos/${path}`;
-                const { error: dbErr } = await supabase
+                const tripRowId = trip.id || id;
+                const { data: updatedTrip, error: dbErr } = await supabase
                   .from("trips")
                   .update({ brochure_url: url })
-                  .eq("id", trip.id);
-                if (dbErr) {
+                  .eq("id", tripRowId)
+                  .select()
+                  .single();
+                if (dbErr || !updatedTrip) {
                   await supabase.storage.from("photos").remove([path]);
-                  flash("err", `Uploaded file could not be linked to this trip: ${dbErr.message}`);
+                  flash("err", dbErr
+                    ? `Uploaded file could not be linked to this trip: ${dbErr.message}`
+                    : "Could not link brochure to this trip (no row updated). Try refreshing the page.");
                   setUploadingBrochure(false);
                   e.target.value = "";
                   return;
                 }
-                setTrip({ ...trip, brochure_url: url });
+                setTrip(updatedTrip as Trip);
+                router.refresh();
                 flash("ok", "Brochure saved. The trip page will show “Click Here for More Information.”");
                 setUploadingBrochure(false);
                 e.target.value = "";
