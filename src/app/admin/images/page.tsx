@@ -19,6 +19,7 @@ const IMAGE_GROUPS = [
       { key: "image_hero_about", label: "About Page Hero", hint: "Banner at the top of the About page" },
       { key: "image_hero_contact", label: "Contact Page Hero", hint: "Banner at the top of the Contact page" },
       { key: "image_hero_travel_info", label: "Travel Info Page Hero", hint: "Banner at the top of the Travel Info page" },
+      { key: "image_hero_travel_insurance", label: "Travel Insurance Page Hero", hint: "Banner at the top of the Travel Insurance page (uses the Travel Info hero until set)" },
     ],
   },
   {

@@ -4,11 +4,12 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import type { SiteSettings } from "@/lib/supabase/site-settings";
 
-const navItems = [
+const navItems: { label: string; href: string; shortLabel?: string }[] = [
   { label: "Home", href: "/" },
   { label: "Group Tours", href: "/trips" },
   { label: "Gallery", href: "/gallery" },
   { label: "Travel Info", href: "/travel-info" },
+  { label: "Travel Insurance", href: "/travel-insurance", shortLabel: "Insurance" },
   { label: "About", href: "/about" },
   { label: "Contact", href: "/contact" },
 ];
@@ -91,12 +92,19 @@ export default function Header({
                   )}
                   <Link
                     href={item.href}
-                    className={`relative block px-4 py-4 font-[family-name:var(--font-heading)] text-[14px] font-semibold hover:text-brand-gold transition-colors uppercase tracking-[0.12em] group/item ${
+                    className={`relative block px-2.5 xl:px-4 py-4 font-[family-name:var(--font-heading)] text-[14px] font-semibold hover:text-brand-gold transition-colors uppercase tracking-[0.12em] group/item ${
                       isGlass ? "text-white/90" : "text-brand-charcoal/80"
                     }`}
                   >
-                    {item.label}
-                    <span className="absolute bottom-0 left-4 right-4 h-[2px] bg-brand-gold scale-x-0 group-hover/item:scale-x-100 transition-transform origin-left" />
+                    {item.shortLabel ? (
+                      <>
+                        <span className="xl:hidden">{item.shortLabel}</span>
+                        <span className="hidden xl:inline">{item.label}</span>
+                      </>
+                    ) : (
+                      item.label
+                    )}
+                    <span className="absolute bottom-0 left-2.5 right-2.5 xl:left-4 xl:right-4 h-[2px] bg-brand-gold scale-x-0 group-hover/item:scale-x-100 transition-transform origin-left" />
                   </Link>
                 </li>
               ))}

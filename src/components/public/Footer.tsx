@@ -31,6 +31,7 @@ export default function Footer({ settings }: { settings: SiteSettings }) {
                 { label: "Group Tours", href: "/trips" },
                 { label: "Gallery", href: "/gallery" },
                 { label: "Travel Information", href: "/travel-info" },
+                { label: "Travel Insurance", href: "/travel-insurance" },
                 { label: "About Us", href: "/about" },
                 { label: "Contact", href: "/contact" },
               ].map((link) => (
