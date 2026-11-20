@@ -16,7 +16,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = join(__dirname, '..');
 
 const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.NEXT_PUBLIC_SUPABASE_URL?.trim(),
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
@@ -224,7 +224,7 @@ async function seedGalleryPhotos() {
 // ── Main ───────────────────────────────────────────────────────
 async function main() {
   console.log('🌱 Starting seed...');
-  console.log(`   Supabase: ${process.env.NEXT_PUBLIC_SUPABASE_URL}`);
+  console.log(`   Supabase: ${process.env.NEXT_PUBLIC_SUPABASE_URL?.trim()}`);
 
   await uploadImages();
   await seedSettings();

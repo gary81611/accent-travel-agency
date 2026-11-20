@@ -22,9 +22,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     .order("display_order")
     .limit(1);
 
-  const ogImage = photos?.[0]
-    ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/photos/${photos[0].storage_path}`
-    : undefined;
+  const ogImage = photos?.[0] ? getImageUrl(photos[0].storage_path) : undefined;
 
   return {
     title: `${trip.title} — ${trip.destination}`,
