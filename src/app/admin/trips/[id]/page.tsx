@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/client";
 import { getImageUrl } from "@/lib/supabase/storage";
+import { getSupabaseUrl } from "@/lib/supabase/url";
 import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -400,7 +401,7 @@ export default function EditTripPage() {
                   e.target.value = "";
                   return;
                 }
-                const base = process.env.NEXT_PUBLIC_SUPABASE_URL;
+                const base = getSupabaseUrl();
                 if (!base) {
                   flash("err", "Site configuration error: missing public URL.");
                   setUploadingBrochure(false);
